@@ -19,3 +19,19 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - mongodb
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
