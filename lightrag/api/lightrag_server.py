@@ -112,8 +112,8 @@ def create_app(args):
     # Check if API key is provided either through env var or args
     api_key = os.getenv("LIGHTRAG_API_KEY") or args.key
 
-    # Initialize document manager
-    doc_manager = DocumentManager(args.input_dir)
+    # Initialize document manager with workspace support for data isolation
+    doc_manager = DocumentManager(args.input_dir, workspace=args.workspace)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -295,6 +295,7 @@ def create_app(args):
     if args.llm_binding in ["lollms", "ollama", "openai"]:
         rag = LightRAG(
             working_dir=args.working_dir,
+            workspace=args.workspace,
             llm_model_func=lollms_model_complete
             if args.llm_binding == "lollms"
             else ollama_model_complete
@@ -325,11 +326,13 @@ def create_app(args):
             enable_llm_cache=args.enable_llm_cache,
             auto_manage_storages_states=False,
             max_parallel_insert=args.max_parallel_insert,
+            max_graph_nodes=args.max_graph_nodes,
             addon_params={"language": args.summary_language},
         )
     else:  # azure_openai
         rag = LightRAG(
             working_dir=args.working_dir,
+            workspace=args.workspace,
             llm_model_func=azure_openai_model_complete,
             chunk_token_size=int(args.chunk_size),
             chunk_overlap_token_size=int(args.chunk_overlap_size),
@@ -351,11 +354,18 @@ def create_app(args):
             enable_llm_cache=args.enable_llm_cache,
             auto_manage_storages_states=False,
             max_parallel_insert=args.max_parallel_insert,
+            max_graph_nodes=args.max_graph_nodes,
             addon_params={"language": args.summary_language},
         )
 
     # Add routes
-    app.include_router(create_document_routes(rag, doc_manager, api_key))
+    app.include_router(
+        create_document_routes(
+            rag,
+            doc_manager,
+            api_key,
+        )
+    )
     app.include_router(create_query_routes(rag, api_key, args.top_k))
     app.include_router(create_graph_routes(rag, api_key))
 
@@ -466,6 +476,8 @@ def create_app(args):
                     "vector_storage": args.vector_storage,
                     "enable_llm_cache_for_extract": args.enable_llm_cache_for_extract,
                     "enable_llm_cache": args.enable_llm_cache,
+                    "workspace": args.workspace,
+                    "max_graph_nodes": args.max_graph_nodes,
                 },
                 "auth_mode": auth_mode,
                 "pipeline_busy": pipeline_status.get("busy", False),
